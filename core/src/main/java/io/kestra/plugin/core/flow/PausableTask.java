@@ -8,9 +8,6 @@ import java.util.Map;
 
 /**
  * A flowable task whose task run is resumed from a PAUSED state, and that can collect inputs at resume time.
- * {@link Pause} and {@link io.kestra.plugin.ee.flow.HumanTask} implement it today; a task run reaches PAUSED
- * on its own through the flowable's {@code resolveState}, and every executor and service call site that used
- * to check {@code instanceof Pause} for resume plumbing now checks {@code instanceof PausableTask} instead.
  */
 public interface PausableTask {
     /**
