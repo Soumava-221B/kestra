@@ -71,6 +71,10 @@
                         </div>
                     </div>
 
+                    <KsText v-if="ignoredFiltersNotices.has(chart.id)" tag="p" size="small" type="warning" class="notice">
+                        {{ ignoredFiltersNotices.get(chart.id) }}
+                    </KsText>
+
                     <div :ref="(el) => observeChartBlock(el, chart.id)" class="flex-grow-1">
                         <component
                             v-if="activatedCharts.has(chart.id)"
@@ -97,10 +101,10 @@
 </template>
 
 <script setup lang="ts">
-    import {computed, type ComponentPublicInstance} from "vue"
+    import {computed, provide, reactive, type ComponentPublicInstance} from "vue"
 
     import type {Dashboard, Chart} from "../composables/useDashboards"
-    import {isKPIChart, isCanvasChart, isExportableChart, getChartTitle} from "../composables/useDashboards"
+    import {IGNORED_FILTERS_INJECTION_KEY, isKPIChart, isCanvasChart, isExportableChart, getChartTitle} from "../composables/useDashboards"
     import {useLazyChartBlocks} from "../composables/useLazyChartBlocks"
     import {TYPES} from "../dashboard-types"
 
@@ -108,19 +112,32 @@
     import {routeFamily} from "../../../utils/routeFamily"
     const route = useRoute()
 
-    import {decodeSearchParams, KsDropdown, KsDropdownMenu, KsDropdownItem, KsSkeleton, KsTooltip} from "@kestra-io/design-system"
+    import {decodeSearchParams, KsDropdown, KsDropdownMenu, KsDropdownItem, KsSkeleton, KsText, KsTooltip} from "@kestra-io/design-system"
 
     import {useDashboardStore} from "../../../stores/dashboard"
     const dashboardStore = useDashboardStore()
 
     import {useI18n} from "vue-i18n"
     import {useToast} from "../../../utils/toast"
-    const {t} = useI18n({useScope: "global"})
+    const {t, te} = useI18n({useScope: "global"})
     const toast = useToast()
 
     import Download from "vue-material-design-icons/Download.vue"
     import Pencil from "vue-material-design-icons/Pencil.vue"
-    import {QueryFilter} from "@kestra-io/kestra-sdk"
+    import {QueryFilter, QueryFilterField} from "@kestra-io/kestra-sdk"
+
+    const ignoredFilters = reactive(new Map<string, QueryFilterField[]>())
+    provide(IGNORED_FILTERS_INJECTION_KEY, (chartId, fields) => ignoredFilters.set(chartId, fields))
+
+    const ignoredFiltersNotices = computed(() => new Map(
+        [...ignoredFilters]
+            .filter(([, fields]) => fields.length > 0)
+            .map(([chartId, fields]) => {
+                const labels = fields.map((field) => te(`filter.${field}.label`) ? t(`filter.${field}.label`) : field)
+
+                return [chartId, t("dashboards.ignoredFilters", {filters: labels.join(", ")}, fields.length)]
+            }),
+    ))
 
     const chartsComponents = new Map<string, {
         refresh(): void;
@@ -241,6 +258,10 @@ section#charts {
 
         &:hover #charts_buttons {
             opacity: 1;
+        }
+
+        .notice {
+            margin: 0 0 var(--ks-spacing-3);
         }
 
         .chart-placeholder {
