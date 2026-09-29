@@ -17,6 +17,7 @@ import io.kestra.core.models.conditions.ConditionContext;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.executions.LogEntry;
 import io.kestra.core.models.flows.Flow;
+import io.kestra.core.models.flows.State;
 import io.kestra.core.models.triggers.TimeWindow;
 import io.kestra.core.models.triggers.multipleflows.Condition;
 import io.kestra.core.models.triggers.multipleflows.MultipleCondition;
@@ -105,6 +106,26 @@ class ConditionServiceTest {
             1
         );
         assertThat(matchingLogs).hasSize(1);
+    }
+
+    @Test
+    void isValidTriggerWhenGivenAnExecutionExposesItsNamespaceFlowIdStateAndRetries() {
+        // Given
+        Flow flow = TestsUtils.mockFlow();
+        Execution execution = TestsUtils.mockExecution(flow, ImmutableMap.of()).withState(State.Type.FAILED);
+        RunContext runContext = runContextFactory.of(null, execution);
+        Schedule trigger = Schedule.builder()
+            .id("unit")
+            .type(Schedule.class.getName())
+            .cron("0 0 1 * *")
+            .when("{{ namespace == '" + flow.getNamespace() + "' and flowId == '" + flow.getId() + "' and state == 'FAILED' and hasRetryAttempt == false }}")
+            .build();
+
+        // When
+        boolean valid = conditionService.isValid(trigger, flow, execution, runContext);
+
+        // Then
+        assertThat(valid).isTrue();
     }
 
     @Test

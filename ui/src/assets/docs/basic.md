@@ -346,6 +346,8 @@ Kestra has a [Pebble templating engine](https://kestra.io/docs/concepts/pebble?u
 | `{{ flow.tenantId }}`               | The identifier of the tenant.                                                                                                                                            |
 | `{{ flow.revision }}`               | The revision of the flow.                                                                                                                                                |
 | `{{ execution.id }}`                | The execution ID, a generated unique id for each execution.                                                                                                              |
+| `{{ execution.namespace }}`         | The namespace of the flow the execution belongs to.                                                                                                                      |
+| `{{ execution.flowId }}`            | The identifier of the flow the execution belongs to.                                                                                                                     |
 | `{{ execution.startDate }}`         | The start date of the current execution, can be formatted with `{{ execution.startDate \| date('yyyy-MM-dd HH:mm:ss.SSSSSS') }}`.                                        |
 | `{{ execution.endDate }}`           | The end date of the current execution, can be formatted with `{{ execution.endDate \| date('yyyy-MM-dd HH:mm:ss.SSSSSS') }}`.                                            |
 | `{{ execution.originalId }}`        | The original execution ID, this id will never change even in case of replay and keep the first execution ID.                                                             |

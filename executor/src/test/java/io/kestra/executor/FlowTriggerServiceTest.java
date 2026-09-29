@@ -14,11 +14,14 @@ import io.kestra.core.exceptions.FlowBlockedException;
 import io.kestra.core.models.Label;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.executions.ExecutionKind;
+import io.kestra.core.models.executions.TaskRun;
+import io.kestra.core.models.executions.TaskRunAttempt;
 import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.flows.FlowId;
 import io.kestra.core.models.flows.FlowWithException;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.flows.State;
+import io.kestra.core.models.property.Property;
 import io.kestra.core.models.triggers.multipleflows.MultipleCondition;
 import io.kestra.core.models.triggers.multipleflows.MultipleConditionStateStore;
 import io.kestra.core.models.triggers.multipleflows.MultipleConditionWindow;
@@ -600,6 +603,100 @@ class FlowTriggerServiceTest {
         // Then
         assertThat(resultingExecutionsToRun).hasSize(1);
         assertThat(resultingExecutionsToRun.getFirst().getFlowId()).isEqualTo(flowWithFlowTrigger.getId());
+    }
+
+    private static final List<String> DOCUMENTED_UPSTREAM_EXPRESSIONS = List.of(
+        "{{ namespace | startsWith('io.kestra') }}",
+        "{{ flowId == 'simple-flow' }}",
+        "{{ state == 'FAILED' }}",
+        "{{ hasRetryAttempt }}",
+        "{{ execution.namespace | startsWith('io.kestra') }}",
+        "{{ execution.flowId == 'simple-flow' }}",
+        "{{ flow.namespace | startsWith('io.kestra') }}",
+        "{{ execution.state == 'FAILED' }}"
+    );
+
+    @Test
+    void shouldExposeTheUpstreamExecutionToTheTopLevelWhen() {
+        var upstream = failedExecutionWithARetriedTask(aSimpleFlow());
+
+        for (String when : DOCUMENTED_UPSTREAM_EXPRESSIONS) {
+            var listener = flowWithFlowTriggerSource().toBuilder()
+                .triggers(List.of(flowTriggerOnFailedWhen(when)))
+                .build();
+
+            assertThat(flowTriggerService.computeExecutionsFromFlowTriggerConditions(upstream, listener)).as(when).hasSize(1);
+        }
+    }
+
+    @Test
+    void shouldExposeTheUpstreamExecutionToTheDependsOnWhen() {
+        var upstream = failedExecutionWithARetriedTask(aSimpleFlow());
+
+        for (String when : DOCUMENTED_UPSTREAM_EXPRESSIONS) {
+            var listener = flowWithFlowTriggerSource().toBuilder()
+                .triggers(List.of(flowTriggerDependingOnAnyFlowWhen(when)))
+                .build();
+
+            assertThat(flowTriggerService.computeExecutionsFromFlowTriggerDependsOn(upstream, listener, new SatisfiedWindowStateStore())).as(when).hasSize(1);
+        }
+    }
+
+    @Test
+    void shouldNotFireWhenTheUpstreamExecutionDoesNotMatch() {
+        var upstream = Execution.newExecution(aSimpleFlow(), EMPTY_LABELS).withState(State.Type.FAILED);
+
+        for (String when : List.of("{{ namespace | startsWith('io.kestrax') }}", "{{ flowId == 'other' }}", "{{ state == 'SUCCESS' }}", "{{ hasRetryAttempt }}")) {
+            var topLevel = flowWithFlowTriggerSource().toBuilder()
+                .triggers(List.of(flowTriggerOnFailedWhen(when)))
+                .build();
+            var dependsOn = flowWithFlowTriggerSource().toBuilder()
+                .triggers(List.of(flowTriggerDependingOnAnyFlowWhen(when)))
+                .build();
+
+            assertThat(flowTriggerService.computeExecutionsFromFlowTriggerConditions(upstream, topLevel)).as(when).isEmpty();
+            assertThat(flowTriggerService.computeExecutionsFromFlowTriggerDependsOn(upstream, dependsOn, new SatisfiedWindowStateStore())).as(when).isEmpty();
+        }
+    }
+
+    private static Execution failedExecutionWithARetriedTask(Flow upstream) {
+        var attempt = TaskRunAttempt.builder().state(new State(State.Type.FAILED)).build();
+        var retried = TaskRun.builder()
+            .id(IdUtils.create())
+            .taskId("retried")
+            .namespace(upstream.getNamespace())
+            .flowId(upstream.getId())
+            .state(new State(State.Type.FAILED))
+            .attempts(List.of(attempt, attempt))
+            .build();
+        return Execution.newExecution(upstream, EMPTY_LABELS).withState(State.Type.FAILED).toBuilder()
+            .taskRunList(List.of(retried))
+            .build();
+    }
+
+    private static io.kestra.plugin.core.trigger.Flow flowTriggerOnFailedWhen(String when) {
+        return io.kestra.plugin.core.trigger.Flow.builder()
+            .id("flowTrigger")
+            .type(io.kestra.plugin.core.trigger.Flow.class.getName())
+            .states(List.of(State.Type.FAILED))
+            .when(when)
+            .build();
+    }
+
+    private static io.kestra.plugin.core.trigger.Flow flowTriggerDependingOnAnyFlowWhen(String when) {
+        return io.kestra.plugin.core.trigger.Flow.builder()
+            .id("flowTrigger")
+            .type(io.kestra.plugin.core.trigger.Flow.class.getName())
+            .states(List.of(State.Type.FAILED))
+            .dependsOn(
+                List.of(
+                    io.kestra.plugin.core.trigger.Flow.Dependency.builder()
+                        .states(List.of(State.Type.FAILED))
+                        .when(Property.ofExpression(when))
+                        .build()
+                )
+            )
+            .build();
     }
 
     private static io.kestra.plugin.core.trigger.Flow flowTriggerWithNoConditions() {

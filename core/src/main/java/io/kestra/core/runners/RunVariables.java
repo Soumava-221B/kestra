@@ -59,7 +59,9 @@ public final class RunVariables {
         "vars",
         // Execution
         "execution",
+        "execution.flowId",
         "execution.id",
+        "execution.namespace",
         "execution.originalId",
         "execution.outputs",
         "execution.startDate",
@@ -245,6 +247,8 @@ public final class RunVariables {
         ImmutableMap.Builder<String, Object> executionMap = ImmutableMap.builder();
 
         executionMap.put("id", execution.getId());
+        Optional.ofNullable(execution.getNamespace()).ifPresent(namespace -> executionMap.put("namespace", namespace));
+        Optional.ofNullable(execution.getFlowId()).ifPresent(flowId -> executionMap.put("flowId", flowId));
 
         if (execution.getState() != null) { // can occur in tests
             executionMap.put("state", execution.getState().getCurrent());

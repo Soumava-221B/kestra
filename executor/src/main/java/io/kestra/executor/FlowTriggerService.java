@@ -204,7 +204,7 @@ public class FlowTriggerService {
 
         if (
             // evaluate conditions
-            conditionService.isValid(flowWithMultipleCondition.getTrigger(), flowWithMultipleCondition.getFlow(), runContext) &&
+            conditionService.isValid(flowWithMultipleCondition.getTrigger(), flowWithMultipleCondition.getFlow(), execution, runContext) &&
             // evaluate dependsOn against the updated accumulated window
                 conditionService
                     .isValid(flowWithMultipleCondition.getTrigger().dependsOnAsMultipleCondition(), flowWithMultipleCondition.getFlow(), execution, Optional.of(updatedWindow), runContext)
@@ -271,6 +271,7 @@ public class FlowTriggerService {
                 flowWithFlowTrigger -> conditionService.isValid(
                     flowWithFlowTrigger.getTrigger(),
                     flowWithFlowTrigger.getFlow(),
+                    execution,
                     runContext
                 )
             ).toList();

@@ -53,6 +53,8 @@ import static io.kestra.core.topologies.FlowTopologyService.SIMULATED_EXECUTION;
     description = """
         Fires when upstream Flow executions meet `dependsOn` (required) and optional trigger `when` condition. Lets you chain Flows owned by different teams.
 
+        The trigger `when` and each `dependsOn` `when` are evaluated against the upstream execution: `namespace`, `flowId`, `state` and `hasRetryAttempt` describe it, `flow` is the upstream flow, `execution` the upstream execution, `labels` its labels and `outputs` its task outputs; its flow outputs are under `execution.outputs`.
+
         Upstream execution outputs are exposed under `trigger.outputs`; you can also pass `inputs` to the downstream Flow."""
 )
 @Plugin(
@@ -238,6 +240,22 @@ public class Flow extends AbstractTrigger implements TriggerOutput<Flow.Output> 
     private static final String TRIGGER_VAR = "trigger";
     private static final String OUTPUTS_VAR = "outputs";
     static final String DEPENDS_ON_CONDITION_PREFIX = "depends_on_";
+
+    /**
+     * The variables a Flow trigger <code>when</code> sees on top of the upstream execution's run context.
+     */
+    public static Map<String, Object> whenVariables(Execution upstream) {
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("namespace", upstream.getNamespace());
+        variables.put("flowId", upstream.getFlowId());
+        variables.put("state", upstream.getState() == null ? null : upstream.getState().getCurrent());
+        variables.put(
+            "hasRetryAttempt",
+            ListUtils.emptyOnNull(upstream.getTaskRunList()).stream()
+                .anyMatch(taskRun -> ListUtils.emptyOnNull(taskRun.getAttempts()).size() > 1)
+        );
+        return variables;
+    }
 
     @Nullable
     @Schema(
@@ -439,7 +457,7 @@ public class Flow extends AbstractTrigger implements TriggerOutput<Flow.Output> 
                 }
             }
 
-            return TruthUtils.isTruthy(conditionContext.getRunContext().render(dependency.when).as(String.class).orElse("true"));
+            return TruthUtils.isTruthy(conditionContext.getRunContext().render(dependency.when).as(String.class, conditionContext.getVariables()).orElse("true"));
         }
     }
 

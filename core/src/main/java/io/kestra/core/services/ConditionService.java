@@ -1,5 +1,7 @@
 package io.kestra.core.services;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import io.kestra.core.exceptions.IllegalVariableEvaluationException;
@@ -45,7 +47,15 @@ public class ConditionService {
      * @return true if the trigger <code>when</code>condition is valid for the given flow and run context.
      */
     public boolean isValid(AbstractTrigger trigger, Flow flow, RunContext runContext) {
-        return !isNotValid(flow, runContext, trigger.getWhen());
+        return !isNotValid(flow, runContext, trigger.getWhen(), Map.of());
+    }
+
+    /**
+     * @return true if the trigger <code>when</code> condition is valid for the given flow and upstream execution,
+     *         with the variables of {@link io.kestra.plugin.core.trigger.Flow#whenVariables(Execution)} in scope.
+     */
+    public boolean isValid(AbstractTrigger trigger, FlowInterface flow, Execution execution, RunContext runContext) {
+        return !isNotValid(flow, runContext, trigger.getWhen(), io.kestra.plugin.core.trigger.Flow.whenVariables(execution));
     }
 
     /**
@@ -80,12 +90,13 @@ public class ConditionService {
             .flow(flow)
             .execution(execution)
             .runContext(runContext)
+            .variables(execution == null ? new HashMap<>() : io.kestra.plugin.core.trigger.Flow.whenVariables(execution))
             .build();
     }
 
-    private boolean isNotValid(FlowInterface flow, RunContext runContext, String when) {
+    private boolean isNotValid(FlowInterface flow, RunContext runContext, String when, Map<String, Object> variables) {
         try {
-            return TruthUtils.isFalsy(runContext.render(when));
+            return TruthUtils.isFalsy(runContext.render(when, variables));
         } catch (IllegalVariableEvaluationException e) {
             logException(flow, when, runContext, e);
 

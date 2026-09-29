@@ -124,6 +124,35 @@ class FlowTopologyServiceTest {
     }
 
     @Test
+    void triggerWhenOnTheUpstreamNamespace() {
+        Flow parent = Flow.builder()
+            .namespace("io.kestra.ee")
+            .id("parent")
+            .revision(1)
+            .tasks(List.of(returnTask()))
+            .build();
+
+        Flow child = Flow.builder()
+            .namespace("system")
+            .id("child")
+            .revision(1)
+            .tasks(List.of(returnTask()))
+            .triggers(
+                List.of(
+                    io.kestra.plugin.core.trigger.Flow.builder()
+                        .type(io.kestra.plugin.core.trigger.Flow.class.getName())
+                        .when("{{ namespace | startsWith('io.kestra') and flowId == 'parent' }}")
+                        .dependsOn(List.of(io.kestra.plugin.core.trigger.Flow.Dependency.builder().build()))
+                        .build()
+                )
+            )
+            .build();
+
+        assertThat(flowTopologyService.isChild(parent, child)).isEqualTo(FlowRelation.FLOW_TRIGGER);
+        assertThat(flowTopologyService.isChild(parent.toBuilder().namespace("io.other").build(), child)).isNull();
+    }
+
+    @Test
     void dependsOn() {
         Flow parent = Flow.builder()
             .namespace("io.kestra.ee")

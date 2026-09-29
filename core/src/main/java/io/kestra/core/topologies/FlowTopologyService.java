@@ -207,7 +207,7 @@ public class FlowTopologyService {
 
         boolean conditionMatch = flowTriggers
             .stream()
-            .allMatch(trigger -> conditionService.isValid(trigger, parent, runContext));
+            .allMatch(trigger -> conditionService.isValid(trigger, parent, execution, runContext));
 
         boolean dependsOnMatch = flowTriggers.stream()
             .anyMatch(flow -> ListUtils.isEmpty(flow.getDependsOn()) || validateDependsOn(flow.getDependsOn(), parent, execution, runContext));

@@ -257,6 +257,25 @@ class RunVariablesTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void shouldExposeNamespaceAndFlowIdOfTheExecution() {
+        Execution execution = Execution.builder()
+            .id("exec-id")
+            .namespace("ns")
+            .flowId("flow")
+            .state(new State())
+            .build();
+
+        Map<String, Object> variables = new RunVariables.DefaultBuilder()
+            .withExecution(execution)
+            .build(new RunContextLogger(), PropertyContext.create(renderer));
+
+        assertThat((Map<String, Object>) variables.get("execution"))
+            .containsEntry("namespace", "ns")
+            .containsEntry("flowId", "flow");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void shouldBuildTriggerContextGivenExecutionWithTrigger() {
         // Given
         ExecutionTrigger executionTrigger = ExecutionTrigger.builder()
